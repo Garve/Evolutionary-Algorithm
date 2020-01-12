@@ -1,54 +1,44 @@
 import numpy as np
 from abc import ABC, abstractmethod
+import matplotlib.pyplot as plt
 
 
 class Individual(ABC):
-    def __init__(self, value=None, **kwargs):
+    def __init__(self, value=None, init_params=None):
         if value is not None:
             self.value = value
         else:
-            self.value = self._random_init(**kwargs)
+            self.value = self._random_init(init_params)
 
     @abstractmethod
-    def __add__(self, other):
+    def pair(self, other, pair_params):
         pass
 
     @abstractmethod
-    def mutate(self, rate):
+    def mutate(self, mutate_params):
         pass
 
     @abstractmethod
-    def _random_init(self, **kwargs):
+    def _random_init(self, init_params):
         pass
 
 
-class OneDimensionalOptimization(Individual):
-    def __add__(self, other):
-        return OneDimensionalOptimization(0.5 * self.value + 0.5 * other.value)
+class Optimization(Individual):
+    def pair(self, other, pair_params):
+        return Optimization(pair_params['alpha'] * self.value + (1 - pair_params['alpha']) * other.value)
 
-    def mutate(self, rate=1):
-        self.value += np.random.normal(0, rate)
+    def mutate(self, mutate_params):
+        self.value += np.random.normal(0, mutate_params['rate'], mutate_params['dim'])
 
-    def _random_init(self, bound):
-        return np.random.uniform(-bound, bound)
-
-
-class ThreeDimensionalOptimization(Individual):
-    def __add__(self, other):
-        return ThreeDimensionalOptimization(0.5 * self.value + 0.5 * other.value)
-
-    def mutate(self, rate=1):
-        self.value += np.random.normal(0, rate, 3)
-
-    def _random_init(self, bound):
-        return np.random.uniform(-bound, bound, 3)
+    def _random_init(self, init_params):
+        return np.random.uniform(-init_params['bound'], init_params['bound'], init_params['dim'])
 
 
 class TSP(Individual):
-    def __add__(self, other):
-        self_head = self.value[:len(self.value) // 2].copy()
-        self_tail = self.value[len(self.value) // 2:].copy()
-        other_tail = other.value[len(other.value) // 2:].copy()
+    def pair(self, other, pair_params):
+        self_head = self.value[:int(len(self.value) * pair_params['alpha'])].copy()
+        self_tail = self.value[int(len(self.value) * pair_params['alpha']):].copy()
+        other_tail = other.value[int(len(other.value) * pair_params['alpha']):].copy()
 
         mapping = {other_tail[i]: self_tail[i] for i in range(len(self_tail))}
 
@@ -58,26 +48,26 @@ class TSP(Individual):
 
         return TSP(np.hstack([self_head, other_tail]))
 
-    def mutate(self, rate=1):
-        for _ in range(rate):
+    def mutate(self, mutate_params):
+        for _ in range(mutate_params['rate']):
             i, j = np.random.choice(range(len(self.value)), 2, replace=False)
             self.value[i], self.value[j] = self.value[j], self.value[i]
 
-    def _random_init(self, n_cities, **kwargs):
-        return np.random.choice(range(n_cities), n_cities, replace=False)
+    def _random_init(self, init_params):
+        return np.random.choice(range(init_params['n_cities']), init_params['n_cities'], replace=False)
 
 
 class Pool:
-    def __init__(self, individual_class, size, fitness, **kwargs):
-        self.size = size
+    def __init__(self, size, fitness, individual_class, init_params):
         self.fitness = fitness
-        self.individuals = [individual_class(**kwargs) for _ in range(size)]
+        self.individuals = [individual_class(init_params=init_params) for _ in range(size)]
         self.individuals.sort(key=lambda x: self.fitness(x))
 
     def replace(self, new_individuals):
+        size = len(self.individuals)
         self.individuals.extend(new_individuals)
         self.individuals.sort(key=lambda x: self.fitness(x))
-        self.individuals = self.individuals[-self.size:]
+        self.individuals = self.individuals[-size:]
 
     def get_parents(self, n_offsprings):
         mothers = self.individuals[-2 * n_offsprings::2]
@@ -87,16 +77,19 @@ class Pool:
 
 
 class Evolution:
-    def __init__(self, individual_class, pool_size, fitness, **kwargs):
-        self.pool = Pool(individual_class, pool_size, fitness, **kwargs)
+    def __init__(self, pool_size, fitness, individual_class, n_offsprings, pair_params, mutate_params, init_params):
+        self.pair_params = pair_params
+        self.mutate_params = mutate_params
+        self.pool = Pool(pool_size, fitness, individual_class, init_params)
+        self.n_offsprings = n_offsprings
 
-    def _step(self, n_offsprings, rate=1):
-        mothers, fathers = self.pool.get_parents(n_offsprings)
+    def _step(self):
+        mothers, fathers = self.pool.get_parents(self.n_offsprings)
         offsprings = []
 
         for mother, father in zip(mothers, fathers):
-            offspring = mother + father
-            offspring.mutate(rate)
+            offspring = mother.pair(father, self.pair_params)
+            offspring.mutate(self.mutate_params)
             offsprings.append(offspring)
 
         self.pool.replace(offsprings)
