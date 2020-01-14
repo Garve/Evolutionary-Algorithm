@@ -1,6 +1,5 @@
 import numpy as np
 from abc import ABC, abstractmethod
-import matplotlib.pyplot as plt
 
 
 class Individual(ABC):
@@ -29,9 +28,14 @@ class Optimization(Individual):
 
     def mutate(self, mutate_params):
         self.value += np.random.normal(0, mutate_params['rate'], mutate_params['dim'])
+        for i in range(len(self.value)):
+            if self.value[i] < mutate_params['lower_bound']:
+                self.value[i] = mutate_params['lower_bound']
+            elif self.value[i] > mutate_params['upper_bound']:
+                self.value[i] = mutate_params['upper_bound']
 
     def _random_init(self, init_params):
-        return np.random.uniform(-init_params['bound'], init_params['bound'], init_params['dim'])
+        return np.random.uniform(init_params['lower_bound'], init_params['upper_bound'], init_params['dim'])
 
 
 class TSP(Individual):
@@ -57,7 +61,7 @@ class TSP(Individual):
         return np.random.choice(range(init_params['n_cities']), init_params['n_cities'], replace=False)
 
 
-class Pool:
+class Population:
     def __init__(self, size, fitness, individual_class, init_params):
         self.fitness = fitness
         self.individuals = [individual_class(init_params=init_params) for _ in range(size)]
@@ -80,10 +84,10 @@ class Evolution:
     def __init__(self, pool_size, fitness, individual_class, n_offsprings, pair_params, mutate_params, init_params):
         self.pair_params = pair_params
         self.mutate_params = mutate_params
-        self.pool = Pool(pool_size, fitness, individual_class, init_params)
+        self.pool = Population(pool_size, fitness, individual_class, init_params)
         self.n_offsprings = n_offsprings
 
-    def _step(self):
+    def step(self):
         mothers, fathers = self.pool.get_parents(self.n_offsprings)
         offsprings = []
 

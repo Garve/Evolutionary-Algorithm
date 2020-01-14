@@ -80,14 +80,20 @@ cities = np.array([[35, 51],
 fitness = tsp_fitness_creator(cities)
 distances = compute_distances(cities)
 
-e = Evolution(100, fitness, TSP, 20, pair_params={'alpha': 0.5}, mutate_params={'rate': 1},
-              init_params={'n_cities': 20})
+evo = Evolution(
+    pool_size=100, fitness=fitness, individual_class=TSP, n_offsprings=30,
+    pair_params={'alpha': 0.5},
+    mutate_params={'rate': 1},
+    init_params={'n_cities': 20}
+)
+n_epochs = 1000
+
 hist = []
-for i in range(100):
-    hist.append(e.pool.fitness(e.pool.individuals[-1]))
-    e._step()
+for i in range(n_epochs):
+    hist.append(evo.pool.fitness(evo.pool.individuals[-1]))
+    evo.step()
 
 plt.plot(hist)
 plt.show()
 
-plot_route(cities, route=e.pool.individuals[-1].value, distances=distances)
+plot_route(cities, route=evo.pool.individuals[-1].value, distances=distances)
