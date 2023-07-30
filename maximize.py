@@ -13,7 +13,7 @@ evo = Evolution(
 )
 n_epochs = 50
 
-for i in range(n_epochs):
+for _ in range(n_epochs):
     evo.step()
 
 print(evo.pool.individuals[-1].value)
