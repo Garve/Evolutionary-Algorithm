@@ -24,18 +24,16 @@ def tsp_fitness_creator(cities):
 def compute_distances(cities):
     distances = []
     for from_city in cities:
-        row = []
-        for to_city in cities:
-            row.append(np.linalg.norm(from_city - to_city))
+        row = [np.linalg.norm(from_city - to_city) for to_city in cities]
         distances.append(row)
     return np.array(distances)
 
 
 def route_length(distances, route):
-    length = 0
-    for i in range(len(route)):
-        length += distances[route[i], route[(i + 1) % len(route)]]
-    return length
+    return sum(
+        distances[route[i], route[(i + 1) % len(route)]]
+        for i in range(len(route))
+    )
 
 
 def plot_route(cities, route, distances):
@@ -89,7 +87,7 @@ evo = Evolution(
 n_epochs = 1000
 
 hist = []
-for i in range(n_epochs):
+for _ in range(n_epochs):
     hist.append(evo.pool.fitness(evo.pool.individuals[-1]))
     evo.step()
 
